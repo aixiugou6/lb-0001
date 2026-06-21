@@ -30,8 +30,22 @@
       <div class="stat-card duration">
         <div class="stat-icon">⏱️</div>
         <div class="stat-info">
-          <h3>总训练时长</h3>
+          <h3>本周总时长</h3>
           <p><span id="week-duration">0</span> 分钟</p>
+        </div>
+      </div>
+      <div class="stat-card monthly-count">
+        <div class="stat-icon">🏃</div>
+        <div class="stat-info">
+          <h3>本月训练次数</h3>
+          <p id="month-records">0</p>
+        </div>
+      </div>
+      <div class="stat-card monthly-duration">
+        <div class="stat-icon">🔥</div>
+        <div class="stat-info">
+          <h3>本月训练时长</h3>
+          <p><span id="month-duration">0</span> 分钟</p>
         </div>
       </div>
     </section>
@@ -75,6 +89,14 @@
       <div id="empty-state" class="empty-state" style="display: none;">
         <p>暂无运动计划，点击"新增计划"开始吧！</p>
       </div>
+    </section>
+
+    <section id="detail-section" class="detail-section" style="display: none;">
+      <div class="detail-header">
+        <button id="btn-back" class="btn btn-outline">← 返回列表</button>
+        <h2 id="detail-title">计划详情</h2>
+      </div>
+      <div id="detail-content" class="detail-content"></div>
     </section>
   </div>
 
@@ -127,10 +149,43 @@
     </div>
   </div>
 
+  <div id="record-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="record-modal-title">新增训练记录</h2>
+        <button id="btn-record-close" class="btn-close">&times;</button>
+      </div>
+      <form id="record-form">
+        <input type="hidden" id="record-id">
+        <input type="hidden" id="record-plan-id">
+        <div class="form-group">
+          <label for="record-date">训练日期 <span class="required">*</span></label>
+          <input type="date" id="record-date" required>
+        </div>
+        <div class="form-group">
+          <label for="record-duration">实际时长（分钟） <span class="required">*</span></label>
+          <input type="number" id="record-duration" min="1" required placeholder="例如：30">
+        </div>
+        <div class="form-group">
+          <label for="record-calories">消耗估算（千卡）</label>
+          <input type="number" id="record-calories" min="0" placeholder="例如：280">
+        </div>
+        <div class="form-group">
+          <label for="record-feeling">感受备注</label>
+          <textarea id="record-feeling" rows="3" placeholder="记录训练感受、身体状态..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-record-cancel" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="confirm-modal" class="modal">
     <div class="modal-content modal-small">
       <h3>确认删除</h3>
-      <p>确定要删除这个运动计划吗？</p>
+      <p id="confirm-message">确定要删除这个运动计划吗？</p>
       <div class="form-actions">
         <button id="btn-cancel-delete" class="btn btn-secondary">取消</button>
         <button id="btn-confirm-delete" class="btn btn-danger">删除</button>

@@ -13,7 +13,8 @@ function formatLocalDate(date) {
 }
 
 const DEFAULT_DATA = {
-  plans: []
+  plans: [],
+  records: []
 };
 
 function loadData() {
@@ -57,17 +58,32 @@ function initSampleData() {
       { id: 6, name: '游泳', type: '有氧', plan_date: getDateStr(3), duration: 90, completed: 0, notes: '自由泳1000米', created_at: new Date().toISOString() },
       { id: 7, name: '休息日-轻度散步', type: '恢复', plan_date: getDateStr(4), duration: 40, completed: 0, notes: '轻松散步，放松肌肉', created_at: new Date().toISOString() }
     ];
+
+    data.records = [
+      { id: 1, plan_id: 1, training_date: getDateStr(-2), actual_duration: 32, calories_burned: 280, feeling_notes: '早晨空气很好，跑完很舒畅', created_at: new Date().toISOString() },
+      { id: 2, plan_id: 2, training_date: getDateStr(-1), actual_duration: 50, calories_burned: 350, feeling_notes: '卧推比上次多做了一组，手臂有点酸', created_at: new Date().toISOString() }
+    ];
+
     saveData(data);
     console.log('已插入示例数据');
+  }
+  if (!data.records) {
+    data.records = [];
+    saveData(data);
   }
   return data;
 }
 
 let appData = initSampleData();
-let nextId = appData.plans.length > 0 ? Math.max(...appData.plans.map(p => p.id)) + 1 : 1;
+let nextPlanId = appData.plans.length > 0 ? Math.max(...appData.plans.map(p => p.id)) + 1 : 1;
+let nextRecordId = appData.records && appData.records.length > 0 ? Math.max(...appData.records.map(r => r.id)) + 1 : 1;
 
-function getNextId() {
-  return nextId++;
+function getNextPlanId() {
+  return nextPlanId++;
+}
+
+function getNextRecordId() {
+  return nextRecordId++;
 }
 
 function parseBody(req) {
@@ -200,6 +216,29 @@ function getWeekStats() {
   };
 }
 
+function getMonthlyStats() {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = String(today.getMonth() + 1).padStart(2, '0');
+  const monthStart = `${year}-${month}-01`;
+  const nextMonth = today.getMonth() + 1 > 11 ? 1 : today.getMonth() + 2;
+  const nextYear = today.getMonth() + 1 > 11 ? year + 1 : year;
+  const monthEndDate = new Date(nextYear, nextMonth - 1, 0);
+  const monthEnd = formatLocalDate(monthEndDate);
+
+  const monthRecords = (appData.records || []).filter(r => r.training_date >= monthStart && r.training_date <= monthEnd);
+  const totalDuration = monthRecords.reduce((sum, r) => sum + r.actual_duration, 0);
+  const totalCalories = monthRecords.reduce((sum, r) => sum + (r.calories_burned || 0), 0);
+
+  return {
+    monthStart,
+    monthEnd,
+    totalRecords: monthRecords.length,
+    totalDuration,
+    totalCalories
+  };
+}
+
 function getPlanTypes() {
   const types = [...new Set(appData.plans.map(p => p.type))];
   return types.sort();
@@ -245,9 +284,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const planMatch = url.match(/^\/api\/plans\/(\d+)\/toggle$/);
-  if (planMatch && method === 'PATCH') {
-    const id = parseInt(planMatch[1]);
+  if (url.startsWith('/api/plans/monthly-stats') && method === 'GET') {
+    sendJSON(res, 200, getMonthlyStats());
+    return;
+  }
+
+  const planToggleMatch = url.match(/^\/api\/plans\/(\d+)\/toggle$/);
+  if (planToggleMatch && method === 'PATCH') {
+    const id = parseInt(planToggleMatch[1]);
     const plan = appData.plans.find(p => p.id === id);
     if (!plan) {
       sendJSON(res, 404, { error: '计划不存在' });
@@ -269,7 +313,11 @@ const server = http.createServer(async (req, res) => {
         sendJSON(res, 404, { error: '计划不存在' });
         return;
       }
-      sendJSON(res, 200, plan);
+      const records = (appData.records || []).filter(r => r.plan_id === id).sort((a, b) => {
+        if (a.training_date !== b.training_date) return b.training_date.localeCompare(a.training_date);
+        return b.id - a.id;
+      });
+      sendJSON(res, 200, { ...plan, records });
       return;
     }
 
@@ -300,6 +348,7 @@ const server = http.createServer(async (req, res) => {
         return;
       }
       appData.plans = appData.plans.filter(p => p.id !== id);
+      appData.records = (appData.records || []).filter(r => r.plan_id !== id);
       saveData(appData);
       sendJSON(res, 200, { message: '删除成功' });
       return;
@@ -326,7 +375,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const newPlan = {
-          id: getNextId(),
+          id: getNextPlanId(),
           name,
           type,
           plan_date,
@@ -346,9 +395,119 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  const recordDetailMatch = url.match(/^\/api\/records\/(\d+)$/);
+  if (recordDetailMatch) {
+    const id = parseInt(recordDetailMatch[1]);
+    const record = (appData.records || []).find(r => r.id === id);
+
+    if (method === 'GET') {
+      if (!record) {
+        sendJSON(res, 404, { error: '训练记录不存在' });
+        return;
+      }
+      sendJSON(res, 200, record);
+      return;
+    }
+
+    if (method === 'PUT') {
+      if (!record) {
+        sendJSON(res, 404, { error: '训练记录不存在' });
+        return;
+      }
+      try {
+        const body = await parseBody(req);
+
+        if (body.plan_id !== undefined && body.plan_id !== null) {
+          const planExists = appData.plans.find(p => p.id === body.plan_id);
+          if (!planExists) {
+            sendJSON(res, 400, { error: '关联的训练计划不存在' });
+            return;
+          }
+        }
+
+        if (body.plan_id !== undefined) record.plan_id = body.plan_id || null;
+        if (body.training_date !== undefined) record.training_date = body.training_date;
+        if (body.actual_duration !== undefined) record.actual_duration = body.actual_duration;
+        if (body.calories_burned !== undefined) record.calories_burned = body.calories_burned;
+        if (body.feeling_notes !== undefined) record.feeling_notes = body.feeling_notes;
+        saveData(appData);
+        sendJSON(res, 200, record);
+      } catch (err) {
+        sendJSON(res, 400, { error: '请求体格式错误' });
+      }
+      return;
+    }
+
+    if (method === 'DELETE') {
+      if (!record) {
+        sendJSON(res, 404, { error: '训练记录不存在' });
+        return;
+      }
+      appData.records = appData.records.filter(r => r.id !== id);
+      saveData(appData);
+      sendJSON(res, 200, { message: '删除成功' });
+      return;
+    }
+  }
+
+  if (url.startsWith('/api/records')) {
+    const query = parseQueryString(url);
+
+    if (method === 'GET') {
+      let records = [...(appData.records || [])];
+      if (query.plan_id) {
+        records = records.filter(r => r.plan_id === parseInt(query.plan_id));
+      }
+      records.sort((a, b) => {
+        if (a.training_date !== b.training_date) return b.training_date.localeCompare(a.training_date);
+        return b.id - a.id;
+      });
+      sendJSON(res, 200, records);
+      return;
+    }
+
+    if (method === 'POST') {
+      try {
+        const body = await parseBody(req);
+        const { plan_id, training_date, actual_duration, calories_burned = 0, feeling_notes = '' } = body;
+
+        if (!training_date || !actual_duration) {
+          sendJSON(res, 400, { error: '缺少必填字段' });
+          return;
+        }
+
+        if (plan_id) {
+          const planExists = appData.plans.find(p => p.id === plan_id);
+          if (!planExists) {
+            sendJSON(res, 400, { error: '关联的训练计划不存在' });
+            return;
+          }
+        }
+
+        const newRecord = {
+          id: getNextRecordId(),
+          plan_id: plan_id || null,
+          training_date,
+          actual_duration,
+          calories_burned,
+          feeling_notes,
+          created_at: new Date().toISOString()
+        };
+
+        if (!appData.records) appData.records = [];
+        appData.records.push(newRecord);
+        saveData(appData);
+        sendJSON(res, 201, newRecord);
+      } catch (err) {
+        sendJSON(res, 400, { error: '请求体格式错误' });
+      }
+      return;
+    }
+  }
+
   sendJSON(res, 404, { error: '接口不存在' });
 });
 
-server.listen(PORT, '127.0.0.1', () => {
+server.listen(PORT, () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
 });
