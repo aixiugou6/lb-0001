@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>个人运动计划管理器</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🏋️ 个人运动计划管理器</h1>
+    </header>
+
+    <section class="stats-section">
+      <div class="stat-card">
+        <div class="stat-icon">📅</div>
+        <div class="stat-info">
+          <h3>本周计划</h3>
+          <p id="week-total">0</p>
+        </div>
+      </div>
+      <div class="stat-card completed">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <h3>已完成</h3>
+          <p id="week-completed">0</p>
+        </div>
+      </div>
+      <div class="stat-card duration">
+        <div class="stat-icon">⏱️</div>
+        <div class="stat-info">
+          <h3>总训练时长</h3>
+          <p><span id="week-duration">0</span> 分钟</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="filter-section">
+      <div class="filter-group">
+        <label>类型筛选</label>
+        <select id="filter-type">
+          <option value="all">全部类型</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>日期筛选</label>
+        <input type="date" id="filter-date">
+      </div>
+      <div class="filter-group">
+        <label>完成状态</label>
+        <select id="filter-completed">
+          <option value="all">全部状态</option>
+          <option value="false">未完成</option>
+          <option value="true">已完成</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <button id="btn-reset" class="btn btn-secondary">重置筛选</button>
+      </div>
+    </section>
+
+    <section class="action-section">
+      <button id="btn-add" class="btn btn-primary">+ 新增计划</button>
+    </section>
+
+    <section class="plans-section">
+      <h2>运动计划列表</h2>
+      <div id="plans-list" class="plans-list">
+      </div>
+      <div id="empty-state" class="empty-state" style="display: none;">
+        <p>暂无运动计划，点击"新增计划"开始吧！</p>
+      </div>
+    </section>
+  </div>
+
+  <div id="modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">新增运动计划</h2>
+        <button id="btn-close" class="btn-close">&times;</button>
+      </div>
+      <form id="plan-form">
+        <input type="hidden" id="plan-id">
+        <div class="form-group">
+          <label for="plan-name">训练名称 <span class="required">*</span></label>
+          <input type="text" id="plan-name" required placeholder="例如：晨跑5公里">
+        </div>
+        <div class="form-group">
+          <label for="plan-type">训练类型 <span class="required">*</span></label>
+          <select id="plan-type" required>
+            <option value="">请选择类型</option>
+            <option value="有氧">有氧</option>
+            <option value="力量">力量</option>
+            <option value="柔韧">柔韧</option>
+            <option value="恢复">恢复</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="plan-date">计划日期 <span class="required">*</span></label>
+          <input type="date" id="plan-date" required>
+        </div>
+        <div class="form-group">
+          <label for="plan-duration">预计时长（分钟） <span class="required">*</span></label>
+          <input type="number" id="plan-duration" min="1" required placeholder="例如：30">
+        </div>
+        <div class="form-group">
+          <label for="plan-completed">
+            <input type="checkbox" id="plan-completed">
+            标记为已完成
+          </label>
+        </div>
+        <div class="form-group">
+          <label for="plan-notes">备注</label>
+          <textarea id="plan-notes" rows="3" placeholder="记录训练感受或注意事项..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-cancel" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="confirm-modal" class="modal">
+    <div class="modal-content modal-small">
+      <h3>确认删除</h3>
+      <p>确定要删除这个运动计划吗？</p>
+      <div class="form-actions">
+        <button id="btn-cancel-delete" class="btn btn-secondary">取消</button>
+        <button id="btn-confirm-delete" class="btn btn-danger">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
