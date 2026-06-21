@@ -439,7 +439,9 @@ header h1 {
   color: #333;
 }
 
-#plan-form {
+#plan-form,
+#record-form,
+#template-form {
   padding: 25px;
 }
 
