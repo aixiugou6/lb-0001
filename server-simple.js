@@ -630,10 +630,16 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      if (numericIds.length === 0) {
+        sendJSON(res, 400, { error: '无效的计划ID' });
+        return;
+      }
+
       const completedVal = completed ? 1 : 0;
       let updated = 0;
       appData.plans.forEach(plan => {
-        if (ids.includes(plan.id)) {
+        if (numericIds.includes(plan.id)) {
           plan.completed = completedVal;
           updated++;
         }
@@ -641,6 +647,7 @@ const server = http.createServer(async (req, res) => {
       saveData(appData);
       sendJSON(res, 200, { message: `成功更新 ${updated} 条计划`, updated });
     } catch (err) {
+      console.error('批量更新状态错误:', err);
       sendJSON(res, 400, { error: '请求体格式错误' });
     }
     return;
@@ -656,13 +663,20 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      if (numericIds.length === 0) {
+        sendJSON(res, 400, { error: '无效的计划ID' });
+        return;
+      }
+
       const beforeCount = appData.plans.length;
-      appData.plans = appData.plans.filter(p => !ids.includes(p.id));
-      appData.records = (appData.records || []).filter(r => !ids.includes(r.plan_id));
+      appData.plans = appData.plans.filter(p => !numericIds.includes(p.id));
+      appData.records = (appData.records || []).filter(r => !numericIds.includes(r.plan_id));
       const deleted = beforeCount - appData.plans.length;
       saveData(appData);
       sendJSON(res, 200, { message: `成功删除 ${deleted} 条计划`, deleted });
     } catch (err) {
+      console.error('批量删除计划错误:', err);
       sendJSON(res, 400, { error: '请求体格式错误' });
     }
     return;
@@ -678,12 +692,19 @@ const server = http.createServer(async (req, res) => {
         return;
       }
 
+      const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+      if (numericIds.length === 0) {
+        sendJSON(res, 400, { error: '无效的模板ID' });
+        return;
+      }
+
       const beforeCount = (appData.templates || []).length;
-      appData.templates = (appData.templates || []).filter(t => !ids.includes(t.id));
+      appData.templates = (appData.templates || []).filter(t => !numericIds.includes(t.id));
       const deleted = beforeCount - appData.templates.length;
       saveData(appData);
       sendJSON(res, 200, { message: `成功删除 ${deleted} 条模板`, deleted });
     } catch (err) {
+      console.error('批量删除模板错误:', err);
       sendJSON(res, 400, { error: '请求体格式错误' });
     }
     return;

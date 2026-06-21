@@ -373,10 +373,12 @@ function renderPlans() {
 }
 
 function togglePlanSelect(id) {
-  if (selectedPlanIds.has(id)) {
-    selectedPlanIds.delete(id);
+  const numericId = parseInt(id, 10);
+  if (isNaN(numericId)) return;
+  if (selectedPlanIds.has(numericId)) {
+    selectedPlanIds.delete(numericId);
   } else {
-    selectedPlanIds.add(id);
+    selectedPlanIds.add(numericId);
   }
   renderPlans();
 }
@@ -454,10 +456,12 @@ function renderTemplates() {
 }
 
 function toggleTemplateSelect(id) {
-  if (selectedTemplateIds.has(id)) {
-    selectedTemplateIds.delete(id);
+  const numericId = parseInt(id, 10);
+  if (isNaN(numericId)) return;
+  if (selectedTemplateIds.has(numericId)) {
+    selectedTemplateIds.delete(numericId);
   } else {
-    selectedTemplateIds.add(id);
+    selectedTemplateIds.add(numericId);
   }
   renderTemplates();
 }
@@ -742,16 +746,19 @@ function showBatchConfirm(actionType, target) {
   batchActionTarget = target;
   const count = target === 'plans' ? selectedPlanIds.size : selectedTemplateIds.size;
 
+  const btn = elements.btnBatchConfirm;
+  btn.classList.remove('btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-outline');
+
   if (actionType === 'complete') {
     elements.batchConfirmTitle.textContent = '确认批量标记已完成';
     elements.batchConfirmMessage.textContent = `确定要将选中的 ${count} 条计划标记为已完成吗？`;
-    elements.btnBatchConfirm.textContent = '确认标记';
-    elements.btnBatchConfirm.className = 'btn btn-success';
+    btn.textContent = '确认标记';
+    btn.classList.add('btn', 'btn-success');
   } else if (actionType === 'incomplete') {
     elements.batchConfirmTitle.textContent = '确认批量标记未完成';
     elements.batchConfirmMessage.textContent = `确定要将选中的 ${count} 条计划标记为未完成吗？`;
-    elements.btnBatchConfirm.textContent = '确认标记';
-    elements.btnBatchConfirm.className = 'btn btn-outline';
+    btn.textContent = '确认标记';
+    btn.classList.add('btn', 'btn-outline');
   } else if (actionType === 'delete') {
     if (target === 'plans') {
       elements.batchConfirmTitle.textContent = '确认批量删除计划';
@@ -760,75 +767,128 @@ function showBatchConfirm(actionType, target) {
       elements.batchConfirmTitle.textContent = '确认批量删除模板';
       elements.batchConfirmMessage.textContent = `确定要删除选中的 ${count} 条模板吗？此操作不可恢复。`;
     }
-    elements.btnBatchConfirm.textContent = '确认删除';
-    elements.btnBatchConfirm.className = 'btn btn-danger';
+    btn.textContent = '确认删除';
+    btn.classList.add('btn', 'btn-danger');
   }
 
+  btn.disabled = false;
   elements.batchConfirmModal.classList.add('show');
 }
 
 function hideBatchConfirm() {
   batchActionType = null;
   batchActionTarget = null;
+  const btn = elements.btnBatchConfirm;
+  btn.classList.remove('btn-primary', 'btn-secondary', 'btn-success', 'btn-danger', 'btn-outline');
+  btn.classList.add('btn', 'btn-danger');
+  btn.textContent = '确认';
+  btn.disabled = false;
   elements.batchConfirmModal.classList.remove('show');
 }
 
 async function executeBatchAction() {
-  if (!batchActionType || !batchActionTarget) return;
+  if (!batchActionType || !batchActionTarget) {
+    console.warn('批量操作参数缺失:', { batchActionType, batchActionTarget });
+    return;
+  }
+
+  const btn = elements.btnBatchConfirm;
+  btn.disabled = true;
+  const originalText = btn.textContent;
+  btn.textContent = '处理中...';
 
   try {
     if (batchActionTarget === 'plans') {
       const ids = Array.from(selectedPlanIds);
+      if (ids.length === 0) {
+        alert('请先选择要操作的计划');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
+      }
+
       let res;
+      let requestBody;
 
       if (batchActionType === 'complete' || batchActionType === 'incomplete') {
         const completed = batchActionType === 'complete';
+        requestBody = { ids, completed };
+        console.log('批量更新状态请求:', requestBody);
         res = await fetch(`${API_BASE}/plans/batch-toggle`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids, completed })
+          body: JSON.stringify(requestBody)
         });
       } else if (batchActionType === 'delete') {
+        requestBody = { ids };
+        console.log('批量删除计划请求:', requestBody);
         res = await fetch(`${API_BASE}/plans/batch-delete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids })
+          body: JSON.stringify(requestBody)
         });
+      } else {
+        console.error('未知的批量操作类型:', batchActionType);
+        alert('未知的操作类型');
+        btn.disabled = false;
+        btn.textContent = originalText;
+        return;
       }
 
-      if (res && res.ok) {
+      console.log('批量操作响应状态:', res.status, res.ok);
+      const responseData = await res.json();
+      console.log('批量操作响应数据:', responseData);
+
+      if (res.ok) {
         hideBatchConfirm();
         selectedPlanIds.clear();
         await fetchPlans();
         await fetchStats();
         await fetchTypes();
         await fetchWeekPlans();
-      } else if (res) {
-        const err = await res.json();
-        alert(err.error || '操作失败');
+      } else {
+        alert(responseData.error || '操作失败');
       }
     } else if (batchActionTarget === 'templates') {
       if (batchActionType === 'delete') {
         const ids = Array.from(selectedTemplateIds);
+        if (ids.length === 0) {
+          alert('请先选择要删除的模板');
+          btn.disabled = false;
+          btn.textContent = originalText;
+          return;
+        }
+
+        const requestBody = { ids };
+        console.log('批量删除模板请求:', requestBody);
         const res = await fetch(`${API_BASE}/templates/batch-delete`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ ids })
+          body: JSON.stringify(requestBody)
         });
+
+        console.log('批量操作响应状态:', res.status, res.ok);
+        const responseData = await res.json();
+        console.log('批量操作响应数据:', responseData);
 
         if (res.ok) {
           hideBatchConfirm();
           selectedTemplateIds.clear();
           await fetchTemplates();
         } else {
-          const err = await res.json();
-          alert(err.error || '操作失败');
+          alert(responseData.error || '操作失败');
         }
+      } else {
+        console.error('未知的模板批量操作类型:', batchActionType);
+        alert('未知的操作类型');
       }
     }
   } catch (err) {
     console.error('批量操作失败:', err);
     alert('操作失败，请稍后重试');
+  } finally {
+    btn.disabled = false;
+    btn.textContent = originalText;
   }
 }
 

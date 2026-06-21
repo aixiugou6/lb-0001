@@ -593,9 +593,13 @@ app.post('/api/plans/batch-toggle', (req, res) => {
 
   try {
     const completedVal = completed ? 1 : 0;
-    const placeholders = ids.map(() => '?').join(',');
+    const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    if (numericIds.length === 0) {
+      return res.status(400).json({ error: '无效的计划ID' });
+    }
+    const placeholders = numericIds.map(() => '?').join(',');
     const updateStmt = db.prepare(`UPDATE workout_plans SET completed = ? WHERE id IN (${placeholders})`);
-    const result = updateStmt.run(completedVal, ...ids);
+    const result = updateStmt.run(completedVal, ...numericIds);
     res.json({ message: `成功更新 ${result.changes} 条计划`, updated: result.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -610,9 +614,13 @@ app.post('/api/plans/batch-delete', (req, res) => {
   }
 
   try {
-    const placeholders = ids.map(() => '?').join(',');
-    db.prepare(`DELETE FROM training_records WHERE plan_id IN (${placeholders})`).run(...ids);
-    const result = db.prepare(`DELETE FROM workout_plans WHERE id IN (${placeholders})`).run(...ids);
+    const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    if (numericIds.length === 0) {
+      return res.status(400).json({ error: '无效的计划ID' });
+    }
+    const placeholders = numericIds.map(() => '?').join(',');
+    db.prepare(`DELETE FROM training_records WHERE plan_id IN (${placeholders})`).run(...numericIds);
+    const result = db.prepare(`DELETE FROM workout_plans WHERE id IN (${placeholders})`).run(...numericIds);
     res.json({ message: `成功删除 ${result.changes} 条计划`, deleted: result.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -627,8 +635,12 @@ app.post('/api/templates/batch-delete', (req, res) => {
   }
 
   try {
-    const placeholders = ids.map(() => '?').join(',');
-    const result = db.prepare(`DELETE FROM training_templates WHERE id IN (${placeholders})`).run(...ids);
+    const numericIds = ids.map(id => parseInt(id, 10)).filter(id => !isNaN(id));
+    if (numericIds.length === 0) {
+      return res.status(400).json({ error: '无效的模板ID' });
+    }
+    const placeholders = numericIds.map(() => '?').join(',');
+    const result = db.prepare(`DELETE FROM training_templates WHERE id IN (${placeholders})`).run(...numericIds);
     res.json({ message: `成功删除 ${result.changes} 条模板`, deleted: result.changes });
   } catch (err) {
     res.status(500).json({ error: err.message });
