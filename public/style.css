@@ -29,7 +29,7 @@ header h1 {
 
 .stats-section {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  grid-template-columns: repeat(6, 1fr);
   gap: 20px;
   margin-bottom: 25px;
 }
@@ -103,6 +103,176 @@ header h1 {
 
 .stat-card.monthly-duration .stat-info p {
   color: #c2185b;
+}
+
+.stat-card.completion-rate .stat-icon {
+  background: #e8f5e9;
+}
+
+.stat-card.completion-rate .stat-info p {
+  color: #2e7d32;
+}
+
+.week-view-section {
+  background: white;
+  border-radius: 12px;
+  padding: 25px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  margin-bottom: 25px;
+}
+
+.week-view-section h2 {
+  font-size: 1.3rem;
+  margin-bottom: 20px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.week-view {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 12px;
+}
+
+.week-day {
+  border: 2px solid #e0e0e0;
+  border-radius: 10px;
+  padding: 12px 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  min-height: 120px;
+  background: #fafafa;
+}
+
+.week-day:hover {
+  border-color: #667eea;
+  background: #f5f7ff;
+  transform: translateY(-2px);
+}
+
+.week-day.selected {
+  border-color: #667eea;
+  background: #e8eaf6;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
+}
+
+.week-day.today {
+  border-color: #4caf50;
+}
+
+.week-day.today .week-day-name {
+  color: #2e7d32;
+  font-weight: 700;
+}
+
+.week-day-header {
+  text-align: center;
+}
+
+.week-day-name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #555;
+}
+
+.week-day-date {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 2px;
+}
+
+.week-day-plans {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+}
+
+.week-day-plan {
+  width: 100%;
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.week-day-plan.completed {
+  background: #c8e6c9;
+  color: #2e7d32;
+  text-decoration: line-through;
+}
+
+.week-day-plan.有氧 {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+
+.week-day-plan.力量 {
+  background: #fce4ec;
+  color: #c2185b;
+}
+
+.week-day-plan.柔韧 {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
+.week-day-plan.恢复 {
+  background: #e8f5e9;
+  color: #388e3c;
+}
+
+.week-day-plan.completed.有氧 {
+  background: #bbdefb;
+  color: #0d47a1;
+}
+
+.week-day-plan.completed.力量 {
+  background: #f8bbd0;
+  color: #880e4f;
+}
+
+.week-day-plan.completed.柔韧 {
+  background: #e1bee7;
+  color: #4a148c;
+}
+
+.week-day-plan.completed.恢复 {
+  background: #c8e6c9;
+  color: #1b5e20;
+}
+
+.week-day-summary {
+  font-size: 0.7rem;
+  color: #666;
+  text-align: center;
+  padding-top: 4px;
+  border-top: 1px solid #eee;
+  width: 100%;
+}
+
+.week-day-summary .completed-count {
+  color: #4caf50;
+  font-weight: 600;
+}
+
+.week-day-summary .total-count {
+  color: #1976d2;
+  font-weight: 600;
 }
 
 .filter-section {
@@ -786,6 +956,10 @@ header h1 {
 
 @media (max-width: 768px) {
   .stats-section {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .week-view {
     grid-template-columns: repeat(2, 1fr);
   }
 

@@ -6,13 +6,17 @@ let currentPlanDetail = null;
 let deleteTargetId = null;
 let deleteTargetType = null;
 let currentTab = 'plans';
+let selectedWeekDay = null;
+let weekPlans = [];
 
 const elements = {
   weekTotal: document.getElementById('week-total'),
   weekCompleted: document.getElementById('week-completed'),
   weekDuration: document.getElementById('week-duration'),
+  weekCompletionRate: document.getElementById('week-completion-rate'),
   monthRecords: document.getElementById('month-records'),
   monthDuration: document.getElementById('month-duration'),
+  weekView: document.getElementById('week-view'),
   filterType: document.getElementById('filter-type'),
   filterDate: document.getElementById('filter-date'),
   filterCompleted: document.getElementById('filter-completed'),
@@ -107,6 +111,25 @@ function getWeekRange() {
   };
 }
 
+function getWeekDays() {
+  const weekRange = getWeekRange();
+  const days = [];
+  const dayNames = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+  const todayStr = getTodayStr();
+
+  for (let i = 0; i < 7; i++) {
+    const date = new Date(weekRange.start);
+    date.setDate(date.getDate() + i);
+    const dateStr = formatDate(date);
+    days.push({
+      date: dateStr,
+      name: dayNames[i],
+      isToday: dateStr === todayStr
+    });
+  }
+  return days;
+}
+
 function switchTab(tabName) {
   currentTab = tabName;
   elements.navTabs.forEach(tab => {
@@ -127,6 +150,10 @@ async function fetchStats() {
     elements.weekTotal.textContent = stats.totalPlans;
     elements.weekCompleted.textContent = stats.completedPlans;
     elements.weekDuration.textContent = stats.totalDuration;
+    const completionRate = stats.totalPlans > 0
+      ? Math.round((stats.completedPlans / stats.totalPlans) * 100)
+      : 0;
+    elements.weekCompletionRate.textContent = completionRate;
   } catch (err) {
     console.error('获取统计数据失败:', err);
   }
@@ -164,6 +191,81 @@ async function fetchTypes() {
   } catch (err) {
     console.error('获取类型列表失败:', err);
   }
+}
+
+async function fetchWeekPlans() {
+  const weekRange = getWeekRange();
+  const params = new URLSearchParams();
+  params.append('startDate', weekRange.start);
+  params.append('endDate', weekRange.end);
+
+  try {
+    const res = await fetch(`${API_BASE}/plans?${params.toString()}`);
+    weekPlans = await res.json();
+    renderWeekView();
+  } catch (err) {
+    console.error('获取本周计划失败:', err);
+  }
+}
+
+function renderWeekView() {
+  const weekDays = getWeekDays();
+
+  elements.weekView.innerHTML = weekDays.map(day => {
+    const dayPlans = weekPlans.filter(p => p.plan_date === day.date);
+    const completedCount = dayPlans.filter(p => p.completed).length;
+    const isSelected = selectedWeekDay === day.date;
+
+    const planItems = dayPlans.slice(0, 3).map(plan => `
+      <div class="week-day-plan ${escapeHtml(plan.type)} ${plan.completed ? 'completed' : ''}" title="${escapeHtml(plan.name)}">
+        ${escapeHtml(plan.name)}
+      </div>
+    `).join('');
+
+    const morePlans = dayPlans.length > 3
+      ? `<div class="week-day-plan" style="background: #f5f5f5; color: #888;">+${dayPlans.length - 3} 更多</div>`
+      : '';
+
+    return `
+      <div class="week-day ${isSelected ? 'selected' : ''} ${day.isToday ? 'today' : ''}"
+           data-date="${day.date}"
+           onclick="filterByWeekDay('${day.date}')">
+        <div class="week-day-header">
+          <div class="week-day-name">${day.name}${day.isToday ? ' (今天)' : ''}</div>
+          <div class="week-day-date">${day.date.slice(5)}</div>
+        </div>
+        <div class="week-day-plans">
+          ${planItems}
+          ${morePlans}
+          ${dayPlans.length === 0 ? '<div style="font-size: 0.7rem; color: #aaa;">无安排</div>' : ''}
+        </div>
+        <div class="week-day-summary">
+          <span class="completed-count">${completedCount}</span> / <span class="total-count">${dayPlans.length}</span>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function filterByWeekDay(date) {
+  if (selectedWeekDay === date) {
+    selectedWeekDay = null;
+    resetFilters();
+  } else {
+    selectedWeekDay = date;
+    currentFilters = {
+      type: 'all',
+      date: date,
+      completed: 'all',
+      startDate: '',
+      endDate: ''
+    };
+    elements.filterType.value = 'all';
+    elements.filterDate.value = date;
+    elements.filterCompleted.value = 'all';
+    fetchPlans();
+  }
+  renderWeekView();
 }
 
 let currentFilters = {
@@ -362,6 +464,7 @@ async function toggleComplete(id) {
     if (res.ok) {
       await fetchPlans();
       await fetchStats();
+      await fetchWeekPlans();
     }
   } catch (err) {
     console.error('切换完成状态失败:', err);
@@ -442,6 +545,7 @@ async function savePlan(e) {
       await fetchPlans();
       await fetchStats();
       await fetchTypes();
+      await fetchWeekPlans();
     } else {
       const err = await res.json();
       alert(err.error || '保存失败');
@@ -571,6 +675,7 @@ async function confirmDelete() {
         await fetchPlans();
         await fetchStats();
         await fetchTypes();
+        await fetchWeekPlans();
       } else if (deleteTargetType === 'template') {
         await fetchTemplates();
       } else {
@@ -597,6 +702,8 @@ function resetFilters() {
   elements.filterType.value = 'all';
   elements.filterDate.value = '';
   elements.filterCompleted.value = 'all';
+  selectedWeekDay = null;
+  renderWeekView();
   fetchPlans();
 }
 
@@ -612,6 +719,8 @@ function filterByWeek() {
   elements.filterType.value = 'all';
   elements.filterDate.value = '';
   elements.filterCompleted.value = 'all';
+  selectedWeekDay = null;
+  renderWeekView();
   fetchPlans();
 }
 
@@ -792,16 +901,26 @@ function initEventListeners() {
 
   elements.filterType.addEventListener('change', () => {
     currentFilters.type = elements.filterType.value;
+    selectedWeekDay = null;
+    renderWeekView();
     fetchPlans();
   });
   elements.filterDate.addEventListener('change', () => {
     currentFilters.date = elements.filterDate.value;
     currentFilters.startDate = '';
     currentFilters.endDate = '';
+    if (elements.filterDate.value) {
+      selectedWeekDay = elements.filterDate.value;
+    } else {
+      selectedWeekDay = null;
+    }
+    renderWeekView();
     fetchPlans();
   });
   elements.filterCompleted.addEventListener('change', () => {
     currentFilters.completed = elements.filterCompleted.value;
+    selectedWeekDay = null;
+    renderWeekView();
     fetchPlans();
   });
   elements.btnWeek.addEventListener('click', filterByWeek);
@@ -867,6 +986,7 @@ async function init() {
   await fetchMonthlyStats();
   await fetchTypes();
   await fetchPlans();
+  await fetchWeekPlans();
 }
 
 window.toggleComplete = toggleComplete;
@@ -877,5 +997,6 @@ window.openAddRecordModal = openAddRecordModal;
 window.editRecord = editRecord;
 window.editTemplate = editTemplate;
 window.applyTemplate = applyTemplate;
+window.filterByWeekDay = filterByWeekDay;
 
 init();
