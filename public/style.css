@@ -183,6 +183,20 @@ header h1 {
   background: #43a047;
 }
 
+.btn-outline {
+  background: white;
+  color: #667eea;
+  border: 1px solid #667eea;
+}
+
+.btn-outline:hover {
+  background: #f0f2ff;
+}
+
+.filter-group .btn + .btn {
+  margin-left: 8px;
+}
+
 .plans-section {
   background: white;
   border-radius: 12px;
@@ -194,6 +208,18 @@ header h1 {
   font-size: 1.3rem;
   margin-bottom: 20px;
   color: #333;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.plans-count {
+  font-size: 0.85rem;
+  font-weight: normal;
+  color: #888;
+  background: #f5f5f5;
+  padding: 3px 10px;
+  border-radius: 20px;
 }
 
 .plans-list {

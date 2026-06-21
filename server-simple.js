@@ -5,6 +5,13 @@ const path = require('path');
 const PORT = 8080;
 const DATA_FILE = path.join(__dirname, 'data.json');
 
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const DEFAULT_DATA = {
   plans: []
 };
@@ -38,7 +45,7 @@ function initSampleData() {
     const getDateStr = (daysOffset) => {
       const d = new Date(today);
       d.setDate(d.getDate() + daysOffset);
-      return d.toISOString().split('T')[0];
+      return formatLocalDate(d);
     };
 
     data.plans = [
@@ -177,9 +184,8 @@ function getWeekStats() {
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
 
-  const formatDate = (d) => d.toISOString().split('T')[0];
-  const weekStart = formatDate(monday);
-  const weekEnd = formatDate(sunday);
+  const weekStart = formatLocalDate(monday);
+  const weekEnd = formatLocalDate(sunday);
 
   const weekPlans = appData.plans.filter(p => p.plan_date >= weekStart && p.plan_date <= weekEnd);
   const completedPlans = weekPlans.filter(p => p.completed);

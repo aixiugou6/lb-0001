@@ -10,9 +10,11 @@ const elements = {
   filterType: document.getElementById('filter-type'),
   filterDate: document.getElementById('filter-date'),
   filterCompleted: document.getElementById('filter-completed'),
+  btnWeek: document.getElementById('btn-week'),
   btnReset: document.getElementById('btn-reset'),
   btnAdd: document.getElementById('btn-add'),
   plansList: document.getElementById('plans-list'),
+  plansCount: document.getElementById('plans-count'),
   emptyState: document.getElementById('empty-state'),
   modal: document.getElementById('modal'),
   modalTitle: document.getElementById('modal-title'),
@@ -41,6 +43,23 @@ function formatDate(dateStr) {
 
 function getTodayStr() {
   return formatDate(new Date());
+}
+
+function getWeekRange() {
+  const today = new Date();
+  const dayOfWeek = today.getDay();
+  const monday = new Date(today);
+  monday.setDate(today.getDate() - (dayOfWeek === 0 ? 6 : dayOfWeek - 1));
+  monday.setHours(0, 0, 0, 0);
+
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  sunday.setHours(23, 59, 59, 999);
+
+  return {
+    start: formatDate(monday),
+    end: formatDate(sunday)
+  };
 }
 
 async function fetchStats() {
@@ -78,26 +97,48 @@ async function fetchTypes() {
   }
 }
 
+let currentFilters = {
+  type: 'all',
+  date: '',
+  completed: 'all',
+  startDate: '',
+  endDate: ''
+};
+
 async function fetchPlans() {
   const params = new URLSearchParams();
   
-  if (elements.filterType.value && elements.filterType.value !== 'all') {
-    params.append('type', elements.filterType.value);
+  if (currentFilters.type && currentFilters.type !== 'all') {
+    params.append('type', currentFilters.type);
   }
-  if (elements.filterDate.value) {
-    params.append('date', elements.filterDate.value);
+  if (currentFilters.date) {
+    params.append('date', currentFilters.date);
   }
-  if (elements.filterCompleted.value && elements.filterCompleted.value !== 'all') {
-    params.append('completed', elements.filterCompleted.value);
+  if (currentFilters.startDate) {
+    params.append('startDate', currentFilters.startDate);
+  }
+  if (currentFilters.endDate) {
+    params.append('endDate', currentFilters.endDate);
+  }
+  if (currentFilters.completed && currentFilters.completed !== 'all') {
+    params.append('completed', currentFilters.completed);
   }
 
   try {
     const res = await fetch(`${API_BASE}/plans?${params.toString()}`);
     currentPlans = await res.json();
     renderPlans();
+    updatePlansCount();
   } catch (err) {
     console.error('获取计划列表失败:', err);
   }
+}
+
+function updatePlansCount() {
+  const hasFilters = currentFilters.type !== 'all' || currentFilters.date || 
+                     currentFilters.completed !== 'all' || currentFilters.startDate;
+  const label = hasFilters ? '筛选结果' : '全部';
+  elements.plansCount.textContent = `${label}: ${currentPlans.length} 条`;
 }
 
 function renderPlans() {
@@ -263,6 +304,28 @@ async function confirmDelete() {
 }
 
 function resetFilters() {
+  currentFilters = {
+    type: 'all',
+    date: '',
+    completed: 'all',
+    startDate: '',
+    endDate: ''
+  };
+  elements.filterType.value = 'all';
+  elements.filterDate.value = '';
+  elements.filterCompleted.value = 'all';
+  fetchPlans();
+}
+
+function filterByWeek() {
+  const weekRange = getWeekRange();
+  currentFilters = {
+    type: 'all',
+    date: '',
+    completed: 'all',
+    startDate: weekRange.start,
+    endDate: weekRange.end
+  };
   elements.filterType.value = 'all';
   elements.filterDate.value = '';
   elements.filterCompleted.value = 'all';
@@ -270,9 +333,21 @@ function resetFilters() {
 }
 
 function initEventListeners() {
-  elements.filterType.addEventListener('change', fetchPlans);
-  elements.filterDate.addEventListener('change', fetchPlans);
-  elements.filterCompleted.addEventListener('change', fetchPlans);
+  elements.filterType.addEventListener('change', () => {
+    currentFilters.type = elements.filterType.value;
+    fetchPlans();
+  });
+  elements.filterDate.addEventListener('change', () => {
+    currentFilters.date = elements.filterDate.value;
+    currentFilters.startDate = '';
+    currentFilters.endDate = '';
+    fetchPlans();
+  });
+  elements.filterCompleted.addEventListener('change', () => {
+    currentFilters.completed = elements.filterCompleted.value;
+    fetchPlans();
+  });
+  elements.btnWeek.addEventListener('click', filterByWeek);
   elements.btnReset.addEventListener('click', resetFilters);
   elements.btnAdd.addEventListener('click', openAddModal);
   elements.btnClose.addEventListener('click', closeModal);

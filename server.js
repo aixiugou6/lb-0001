@@ -6,6 +6,13 @@ const cors = require('cors');
 const app = express();
 const PORT = 3000;
 
+function formatLocalDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'public')));
@@ -38,7 +45,7 @@ if (count === 0) {
   const getDateStr = (daysOffset) => {
     const d = new Date(today);
     d.setDate(d.getDate() + daysOffset);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   };
 
   const sampleData = [
@@ -112,11 +119,9 @@ app.get('/api/plans/stats', (req, res) => {
   sunday.setDate(monday.getDate() + 6);
   sunday.setHours(23, 59, 59, 999);
 
-  const formatDate = (d) => d.toISOString().split('T')[0];
-
   try {
-    const weekStart = formatDate(monday);
-    const weekEnd = formatDate(sunday);
+    const weekStart = formatLocalDate(monday);
+    const weekEnd = formatLocalDate(sunday);
 
     const totalStmt = db.prepare(`
       SELECT COUNT(*) as total FROM workout_plans
