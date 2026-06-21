@@ -1,9 +1,11 @@
 const API_BASE = '/api';
 
 let currentPlans = [];
+let currentTemplates = [];
 let currentPlanDetail = null;
 let deleteTargetId = null;
 let deleteTargetType = null;
+let currentTab = 'plans';
 
 const elements = {
   weekTotal: document.getElementById('week-total'),
@@ -32,6 +34,8 @@ const elements = {
   planDuration: document.getElementById('plan-duration'),
   planCompleted: document.getElementById('plan-completed'),
   planNotes: document.getElementById('plan-notes'),
+  planTemplate: document.getElementById('plan-template'),
+  templateSelectorGroup: document.getElementById('template-selector-group'),
   recordModal: document.getElementById('record-modal'),
   recordModalTitle: document.getElementById('record-modal-title'),
   btnRecordClose: document.getElementById('btn-record-close'),
@@ -53,7 +57,25 @@ const elements = {
   btnBack: document.getElementById('btn-back'),
   plansSection: document.querySelector('.plans-section'),
   actionSection: document.querySelector('.action-section'),
-  filterSection: document.querySelector('.filter-section')
+  filterSection: document.querySelector('.filter-section'),
+  navTabs: document.querySelectorAll('.nav-tab'),
+  tabPlans: document.getElementById('tab-plans'),
+  tabTemplates: document.getElementById('tab-templates'),
+  btnAddTemplate: document.getElementById('btn-add-template'),
+  templatesList: document.getElementById('templates-list'),
+  templatesCount: document.getElementById('templates-count'),
+  templatesEmptyState: document.getElementById('templates-empty-state'),
+  templateModal: document.getElementById('template-modal'),
+  templateModalTitle: document.getElementById('template-modal-title'),
+  btnTemplateClose: document.getElementById('btn-template-close'),
+  btnTemplateCancel: document.getElementById('btn-template-cancel'),
+  templateForm: document.getElementById('template-form'),
+  templateId: document.getElementById('template-id'),
+  templateName: document.getElementById('template-name'),
+  templateType: document.getElementById('template-type'),
+  templateDuration: document.getElementById('template-duration'),
+  templateDescription: document.getElementById('template-description'),
+  templateNotes: document.getElementById('template-notes')
 };
 
 function formatDate(dateStr) {
@@ -83,6 +105,19 @@ function getWeekRange() {
     start: formatDate(monday),
     end: formatDate(sunday)
   };
+}
+
+function switchTab(tabName) {
+  currentTab = tabName;
+  elements.navTabs.forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.tab === tabName);
+  });
+  elements.tabPlans.classList.toggle('active', tabName === 'plans');
+  elements.tabTemplates.classList.toggle('active', tabName === 'templates');
+  elements.detailSection.style.display = 'none';
+  if (tabName === 'templates') {
+    fetchTemplates();
+  }
 }
 
 async function fetchStats() {
@@ -208,6 +243,111 @@ function renderPlans() {
   `).join('');
 }
 
+async function fetchTemplates() {
+  try {
+    const res = await fetch(`${API_BASE}/templates`);
+    currentTemplates = await res.json();
+    renderTemplates();
+    updateTemplatesCount();
+  } catch (err) {
+    console.error('获取模板列表失败:', err);
+  }
+}
+
+function updateTemplatesCount() {
+  elements.templatesCount.textContent = `全部: ${currentTemplates.length} 条`;
+}
+
+function renderTemplates() {
+  if (currentTemplates.length === 0) {
+    elements.templatesList.innerHTML = '';
+    elements.templatesEmptyState.style.display = 'block';
+    return;
+  }
+
+  elements.templatesEmptyState.style.display = 'none';
+
+  elements.templatesList.innerHTML = currentTemplates.map(template => `
+    <div class="template-item" data-id="${template.id}">
+      <div class="template-content">
+        <div class="template-header">
+          <span class="template-name">${escapeHtml(template.name)}</span>
+          <span class="plan-type ${escapeHtml(template.type)}">${escapeHtml(template.type)}</span>
+        </div>
+        <div class="template-meta">
+          <span>⏱️ 默认 ${template.default_duration} 分钟</span>
+        </div>
+        ${template.exercise_description ? `<div class="template-desc"><strong>动作说明：</strong>${escapeHtml(template.exercise_description)}</div>` : ''}
+        ${template.notes ? `<div class="template-notes"><strong>备注：</strong>${escapeHtml(template.notes)}</div>` : ''}
+      </div>
+      <div class="template-actions">
+        <button class="btn btn-success" onclick="applyTemplate(${template.id})">📋 套用创建计划</button>
+        <button class="btn btn-secondary" onclick="editTemplate(${template.id})">编辑</button>
+        <button class="btn btn-danger" onclick="showDeleteConfirm(${template.id}, 'template')">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function populateTemplateSelector() {
+  try {
+    const res = await fetch(`${API_BASE}/templates`);
+    const templates = await res.json();
+    elements.planTemplate.innerHTML = '<option value="">-- 不使用模板，手动填写 --</option>';
+    templates.forEach(template => {
+      const option = document.createElement('option');
+      option.value = template.id;
+      option.textContent = `${template.name} (${template.type} · ${template.default_duration}分钟)`;
+      elements.planTemplate.appendChild(option);
+    });
+  } catch (err) {
+    console.error('获取模板列表失败:', err);
+  }
+}
+
+function applyTemplateData(template) {
+  elements.planName.value = template.name;
+  elements.planType.value = template.type;
+  elements.planDuration.value = template.default_duration;
+  let combinedNotes = '';
+  if (template.exercise_description) {
+    combinedNotes += `【动作说明】\n${template.exercise_description}`;
+  }
+  if (template.notes) {
+    if (combinedNotes) combinedNotes += '\n\n';
+    combinedNotes += `【备注】\n${template.notes}`;
+  }
+  elements.planNotes.value = combinedNotes;
+}
+
+async function onTemplateSelected(e) {
+  const templateId = e.target.value;
+  if (!templateId) return;
+  try {
+    const res = await fetch(`${API_BASE}/templates/${templateId}`);
+    const template = await res.json();
+    if (template) {
+      applyTemplateData(template);
+    }
+  } catch (err) {
+    console.error('获取模板详情失败:', err);
+  }
+}
+
+async function applyTemplate(templateId) {
+  try {
+    const res = await fetch(`${API_BASE}/templates/${templateId}`);
+    const template = await res.json();
+    if (template) {
+      switchTab('plans');
+      openAddModal();
+      applyTemplateData(template);
+    }
+  } catch (err) {
+    console.error('套用模板失败:', err);
+  }
+}
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -228,7 +368,7 @@ async function toggleComplete(id) {
   }
 }
 
-function openAddModal() {
+async function openAddModal() {
   elements.modalTitle.textContent = '新增运动计划';
   elements.planId.value = '';
   elements.planName.value = '';
@@ -237,6 +377,9 @@ function openAddModal() {
   elements.planDuration.value = '';
   elements.planCompleted.checked = false;
   elements.planNotes.value = '';
+  elements.templateSelectorGroup.style.display = 'block';
+  elements.planTemplate.value = '';
+  await populateTemplateSelector();
   elements.modal.classList.add('show');
 }
 
@@ -253,6 +396,7 @@ async function editPlan(id) {
     elements.planDuration.value = plan.duration;
     elements.planCompleted.checked = !!plan.completed;
     elements.planNotes.value = plan.notes || '';
+    elements.templateSelectorGroup.style.display = 'none';
     elements.modal.classList.add('show');
   } catch (err) {
     console.error('获取计划详情失败:', err);
@@ -308,11 +452,88 @@ async function savePlan(e) {
   }
 }
 
+function openAddTemplateModal() {
+  elements.templateModalTitle.textContent = '新增训练模板';
+  elements.templateId.value = '';
+  elements.templateName.value = '';
+  elements.templateType.value = '';
+  elements.templateDuration.value = '';
+  elements.templateDescription.value = '';
+  elements.templateNotes.value = '';
+  elements.templateModal.classList.add('show');
+}
+
+async function editTemplate(id) {
+  try {
+    const res = await fetch(`${API_BASE}/templates/${id}`);
+    const template = await res.json();
+
+    elements.templateModalTitle.textContent = '编辑训练模板';
+    elements.templateId.value = template.id;
+    elements.templateName.value = template.name;
+    elements.templateType.value = template.type;
+    elements.templateDuration.value = template.default_duration;
+    elements.templateDescription.value = template.exercise_description || '';
+    elements.templateNotes.value = template.notes || '';
+    elements.templateModal.classList.add('show');
+  } catch (err) {
+    console.error('获取模板详情失败:', err);
+  }
+}
+
+function closeTemplateModal() {
+  elements.templateModal.classList.remove('show');
+}
+
+async function saveTemplate(e) {
+  e.preventDefault();
+
+  const templateData = {
+    name: elements.templateName.value.trim(),
+    type: elements.templateType.value,
+    default_duration: parseInt(elements.templateDuration.value),
+    exercise_description: elements.templateDescription.value.trim(),
+    notes: elements.templateNotes.value.trim()
+  };
+
+  const id = elements.templateId.value;
+
+  try {
+    let res;
+    if (id) {
+      res = await fetch(`${API_BASE}/templates/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(templateData)
+      });
+    } else {
+      res = await fetch(`${API_BASE}/templates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(templateData)
+      });
+    }
+
+    if (res.ok) {
+      closeTemplateModal();
+      await fetchTemplates();
+    } else {
+      const err = await res.json();
+      alert(err.error || '保存失败');
+    }
+  } catch (err) {
+    console.error('保存模板失败:', err);
+    alert('保存失败，请稍后重试');
+  }
+}
+
 function showDeleteConfirm(id, type) {
   deleteTargetId = id;
   deleteTargetType = type;
   if (type === 'plan') {
     elements.confirmMessage.textContent = '确定要删除这个运动计划吗？关联的训练记录也会被删除。';
+  } else if (type === 'template') {
+    elements.confirmMessage.textContent = '确定要删除这个训练模板吗？';
   } else {
     elements.confirmMessage.textContent = '确定要删除这条训练记录吗？';
   }
@@ -334,6 +555,10 @@ async function confirmDelete() {
       res = await fetch(`${API_BASE}/plans/${deleteTargetId}`, {
         method: 'DELETE'
       });
+    } else if (deleteTargetType === 'template') {
+      res = await fetch(`${API_BASE}/templates/${deleteTargetId}`, {
+        method: 'DELETE'
+      });
     } else {
       res = await fetch(`${API_BASE}/records/${deleteTargetId}`, {
         method: 'DELETE'
@@ -346,6 +571,8 @@ async function confirmDelete() {
         await fetchPlans();
         await fetchStats();
         await fetchTypes();
+      } else if (deleteTargetType === 'template') {
+        await fetchTemplates();
       } else {
         await fetchMonthlyStats();
         if (currentPlanDetail) {
@@ -390,9 +617,11 @@ function filterByWeek() {
 
 function showList() {
   elements.detailSection.style.display = 'none';
-  elements.plansSection.style.display = 'block';
-  elements.filterSection.style.display = 'flex';
-  elements.actionSection.style.display = 'block';
+  if (currentTab === 'plans') {
+    elements.tabPlans.classList.add('active');
+  } else {
+    elements.tabTemplates.classList.add('active');
+  }
   currentPlanDetail = null;
 }
 
@@ -403,9 +632,8 @@ async function viewPlanDetail(id) {
     currentPlanDetail = plan;
     renderPlanDetail(plan);
 
-    elements.plansSection.style.display = 'none';
-    elements.filterSection.style.display = 'none';
-    elements.actionSection.style.display = 'none';
+    elements.tabPlans.classList.remove('active');
+    elements.tabTemplates.classList.remove('active');
     elements.detailSection.style.display = 'block';
   } catch (err) {
     console.error('获取计划详情失败:', err);
@@ -558,6 +786,10 @@ async function saveRecord(e) {
 }
 
 function initEventListeners() {
+  elements.navTabs.forEach(tab => {
+    tab.addEventListener('click', () => switchTab(tab.dataset.tab));
+  });
+
   elements.filterType.addEventListener('change', () => {
     currentFilters.type = elements.filterType.value;
     fetchPlans();
@@ -578,12 +810,17 @@ function initEventListeners() {
   elements.btnClose.addEventListener('click', closeModal);
   elements.btnCancel.addEventListener('click', closeModal);
   elements.planForm.addEventListener('submit', savePlan);
+  elements.planTemplate.addEventListener('change', onTemplateSelected);
   elements.btnRecordClose.addEventListener('click', closeRecordModal);
   elements.btnRecordCancel.addEventListener('click', closeRecordModal);
   elements.recordForm.addEventListener('submit', saveRecord);
   elements.btnCancelDelete.addEventListener('click', hideDeleteConfirm);
   elements.btnConfirmDelete.addEventListener('click', confirmDelete);
   elements.btnBack.addEventListener('click', showList);
+  elements.btnAddTemplate.addEventListener('click', openAddTemplateModal);
+  elements.btnTemplateClose.addEventListener('click', closeTemplateModal);
+  elements.btnTemplateCancel.addEventListener('click', closeTemplateModal);
+  elements.templateForm.addEventListener('submit', saveTemplate);
 
   elements.modal.addEventListener('click', (e) => {
     if (e.target === elements.modal) {
@@ -597,6 +834,12 @@ function initEventListeners() {
     }
   });
 
+  elements.templateModal.addEventListener('click', (e) => {
+    if (e.target === elements.templateModal) {
+      closeTemplateModal();
+    }
+  });
+
   elements.confirmModal.addEventListener('click', (e) => {
     if (e.target === elements.confirmModal) {
       hideDeleteConfirm();
@@ -607,6 +850,8 @@ function initEventListeners() {
     if (e.key === 'Escape') {
       if (elements.confirmModal.classList.contains('show')) {
         hideDeleteConfirm();
+      } else if (elements.templateModal.classList.contains('show')) {
+        closeTemplateModal();
       } else if (elements.recordModal.classList.contains('show')) {
         closeRecordModal();
       } else if (elements.modal.classList.contains('show')) {
@@ -630,5 +875,7 @@ window.showDeleteConfirm = showDeleteConfirm;
 window.viewPlanDetail = viewPlanDetail;
 window.openAddRecordModal = openAddRecordModal;
 window.editRecord = editRecord;
+window.editTemplate = editTemplate;
+window.applyTemplate = applyTemplate;
 
 init();

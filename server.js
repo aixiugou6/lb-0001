@@ -45,6 +45,18 @@ db.exec(`
   )
 `);
 
+db.exec(`
+  CREATE TABLE IF NOT EXISTS training_templates (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,
+    default_duration INTEGER NOT NULL,
+    exercise_description TEXT,
+    notes TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
 const planCountStmt = db.prepare('SELECT COUNT(*) as count FROM workout_plans');
 const planCount = planCountStmt.get().count;
 
@@ -102,6 +114,35 @@ if (planCount === 0) {
 
     insertManyRecords(sampleRecords);
     console.log('已插入示例训练记录数据');
+  }
+
+  const templateCountStmt = db.prepare('SELECT COUNT(*) as count FROM training_templates');
+  const templateCount = templateCountStmt.get().count;
+
+  if (templateCount === 0) {
+    const insertTemplateStmt = db.prepare(`
+      INSERT INTO training_templates (name, type, default_duration, exercise_description, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+
+    const sampleTemplates = [
+      ['标准晨跑', '有氧', 30, '热身5分钟 -> 匀速跑步20分钟 -> 拉伸5分钟，配速控制在6-7分钟/公里', '适合工作日早晨，保持中等强度'],
+      ['上肢力量训练', '力量', 45, '卧推4组x12次、哑铃飞鸟3组x15次、俯卧撑3组x15次、二头弯举3组x12次', '注意动作标准，避免借力'],
+      ['下肢力量训练', '力量', 50, '深蹲4组x15次、箭步蹲3组x12次/腿、腿举3组x15次、小腿提踵4组x20次', '下蹲时膝盖不超过脚尖'],
+      ['核心强化', '力量', 35, '平板支撑3组x60秒、卷腹3组x20次、俄罗斯转体3组x20次、登山跑3组x30秒', '保持核心收紧，呼吸均匀'],
+      ['HIIT燃脂', '有氧', 25, '开合跳30秒、高抬腿30秒、波比跳20秒、深蹲跳30秒、休息30秒，循环5组', '高强度训练，注意量力而行'],
+      ['瑜伽放松', '柔韧', 60, '拜日式x5组 -> 战士式 -> 三角式 -> 坐角式 -> 仰卧扭转 -> 挺尸式放松', '配合深呼吸，每个动作保持5-8个呼吸'],
+      ['游泳训练', '有氧', 90, '热身50米 -> 自由泳400米 -> 蛙泳200米 -> 仰泳200米 -> 放松游150米', '注意换气节奏，提前补充水分']
+    ];
+
+    const insertManyTemplates = db.transaction((data) => {
+      for (const row of data) {
+        insertTemplateStmt.run(...row);
+      }
+    });
+
+    insertManyTemplates(sampleTemplates);
+    console.log('已插入示例训练模板数据');
   }
 }
 
@@ -438,6 +479,101 @@ app.delete('/api/records/:id', (req, res) => {
     }
 
     db.prepare('DELETE FROM training_records WHERE id = ?').run(req.params.id);
+    res.json({ message: '删除成功' });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/templates', (req, res) => {
+  const { type } = req.query;
+  let sql = 'SELECT * FROM training_templates WHERE 1=1';
+  const params = [];
+
+  if (type && type !== 'all') {
+    sql += ' AND type = ?';
+    params.push(type);
+  }
+
+  sql += ' ORDER BY id DESC';
+
+  try {
+    const templates = db.prepare(sql).all(...params);
+    res.json(templates);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/templates/:id', (req, res) => {
+  try {
+    const template = db.prepare('SELECT * FROM training_templates WHERE id = ?').get(req.params.id);
+    if (!template) {
+      return res.status(404).json({ error: '模板不存在' });
+    }
+    res.json(template);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/templates', (req, res) => {
+  const { name, type, default_duration, exercise_description = '', notes = '' } = req.body;
+
+  if (!name || !type || !default_duration) {
+    return res.status(400).json({ error: '缺少必填字段' });
+  }
+
+  try {
+    const stmt = db.prepare(`
+      INSERT INTO training_templates (name, type, default_duration, exercise_description, notes)
+      VALUES (?, ?, ?, ?, ?)
+    `);
+    const result = stmt.run(name, type, default_duration, exercise_description, notes);
+    const newTemplate = db.prepare('SELECT * FROM training_templates WHERE id = ?').get(result.lastInsertRowid);
+    res.status(201).json(newTemplate);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/templates/:id', (req, res) => {
+  const { name, type, default_duration, exercise_description, notes } = req.body;
+
+  try {
+    const existing = db.prepare('SELECT * FROM training_templates WHERE id = ?').get(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: '模板不存在' });
+    }
+
+    const updatedName = name !== undefined ? name : existing.name;
+    const updatedType = type !== undefined ? type : existing.type;
+    const updatedDuration = default_duration !== undefined ? default_duration : existing.default_duration;
+    const updatedDesc = exercise_description !== undefined ? exercise_description : existing.exercise_description;
+    const updatedNotes = notes !== undefined ? notes : existing.notes;
+
+    const stmt = db.prepare(`
+      UPDATE training_templates
+      SET name = ?, type = ?, default_duration = ?, exercise_description = ?, notes = ?
+      WHERE id = ?
+    `);
+    stmt.run(updatedName, updatedType, updatedDuration, updatedDesc, updatedNotes, req.params.id);
+
+    const updatedTemplate = db.prepare('SELECT * FROM training_templates WHERE id = ?').get(req.params.id);
+    res.json(updatedTemplate);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/templates/:id', (req, res) => {
+  try {
+    const existing = db.prepare('SELECT * FROM training_templates WHERE id = ?').get(req.params.id);
+    if (!existing) {
+      return res.status(404).json({ error: '模板不存在' });
+    }
+
+    db.prepare('DELETE FROM training_templates WHERE id = ?').run(req.params.id);
     res.json({ message: '删除成功' });
   } catch (err) {
     res.status(500).json({ error: err.message });

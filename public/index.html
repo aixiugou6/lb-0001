@@ -10,6 +10,10 @@
   <div class="container">
     <header>
       <h1>🏋️ 个人运动计划管理器</h1>
+      <div class="nav-tabs">
+        <button class="nav-tab active" data-tab="plans">📋 训练计划</button>
+        <button class="nav-tab" data-tab="templates">📝 训练模板</button>
+      </div>
     </header>
 
     <section class="stats-section">
@@ -50,46 +54,66 @@
       </div>
     </section>
 
-    <section class="filter-section">
-      <div class="filter-group">
-        <label>类型筛选</label>
-        <select id="filter-type">
-          <option value="all">全部类型</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <label>日期筛选</label>
-        <input type="date" id="filter-date">
-      </div>
-      <div class="filter-group">
-        <label>完成状态</label>
-        <select id="filter-completed">
-          <option value="all">全部状态</option>
-          <option value="false">未完成</option>
-          <option value="true">已完成</option>
-        </select>
-      </div>
-      <div class="filter-group">
-        <button id="btn-week" class="btn btn-outline">本周</button>
-        <button id="btn-reset" class="btn btn-secondary">重置筛选</button>
-      </div>
-    </section>
+    <div id="tab-plans" class="tab-content active">
+      <section class="filter-section">
+        <div class="filter-group">
+          <label>类型筛选</label>
+          <select id="filter-type">
+            <option value="all">全部类型</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <label>日期筛选</label>
+          <input type="date" id="filter-date">
+        </div>
+        <div class="filter-group">
+          <label>完成状态</label>
+          <select id="filter-completed">
+            <option value="all">全部状态</option>
+            <option value="false">未完成</option>
+            <option value="true">已完成</option>
+          </select>
+        </div>
+        <div class="filter-group">
+          <button id="btn-week" class="btn btn-outline">本周</button>
+          <button id="btn-reset" class="btn btn-secondary">重置筛选</button>
+        </div>
+      </section>
 
-    <section class="action-section">
-      <button id="btn-add" class="btn btn-primary">+ 新增计划</button>
-    </section>
+      <section class="action-section">
+        <button id="btn-add" class="btn btn-primary">+ 新增计划</button>
+      </section>
 
-    <section class="plans-section">
-      <h2>
-        运动计划列表
-        <span id="plans-count" class="plans-count"></span>
-      </h2>
-      <div id="plans-list" class="plans-list">
-      </div>
-      <div id="empty-state" class="empty-state" style="display: none;">
-        <p>暂无运动计划，点击"新增计划"开始吧！</p>
-      </div>
-    </section>
+      <section class="plans-section">
+        <h2>
+          运动计划列表
+          <span id="plans-count" class="plans-count"></span>
+        </h2>
+        <div id="plans-list" class="plans-list">
+        </div>
+        <div id="empty-state" class="empty-state" style="display: none;">
+          <p>暂无运动计划，点击"新增计划"开始吧！</p>
+        </div>
+      </section>
+    </div>
+
+    <div id="tab-templates" class="tab-content">
+      <section class="action-section">
+        <button id="btn-add-template" class="btn btn-primary">+ 新增模板</button>
+      </section>
+
+      <section class="templates-section">
+        <h2>
+          训练模板列表
+          <span id="templates-count" class="plans-count"></span>
+        </h2>
+        <div id="templates-list" class="templates-list">
+        </div>
+        <div id="templates-empty-state" class="empty-state" style="display: none;">
+          <p>暂无训练模板，点击"新增模板"开始创建常用训练吧！</p>
+        </div>
+      </section>
+    </div>
 
     <section id="detail-section" class="detail-section" style="display: none;">
       <div class="detail-header">
@@ -108,6 +132,12 @@
       </div>
       <form id="plan-form">
         <input type="hidden" id="plan-id">
+        <div id="template-selector-group" class="form-group">
+          <label for="plan-template">从模板快速带入</label>
+          <select id="plan-template">
+            <option value="">-- 不使用模板，手动填写 --</option>
+          </select>
+        </div>
         <div class="form-group">
           <label for="plan-name">训练名称 <span class="required">*</span></label>
           <input type="text" id="plan-name" required placeholder="例如：晨跑5公里">
@@ -190,6 +220,49 @@
         <button id="btn-cancel-delete" class="btn btn-secondary">取消</button>
         <button id="btn-confirm-delete" class="btn btn-danger">删除</button>
       </div>
+    </div>
+  </div>
+
+  <div id="template-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="template-modal-title">新增训练模板</h2>
+        <button id="btn-template-close" class="btn-close">&times;</button>
+      </div>
+      <form id="template-form">
+        <input type="hidden" id="template-id">
+        <div class="form-group">
+          <label for="template-name">模板名称 <span class="required">*</span></label>
+          <input type="text" id="template-name" required placeholder="例如：标准晨跑">
+        </div>
+        <div class="form-group">
+          <label for="template-type">训练类型 <span class="required">*</span></label>
+          <select id="template-type" required>
+            <option value="">请选择类型</option>
+            <option value="有氧">有氧</option>
+            <option value="力量">力量</option>
+            <option value="柔韧">柔韧</option>
+            <option value="恢复">恢复</option>
+            <option value="其他">其他</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="template-duration">默认时长（分钟） <span class="required">*</span></label>
+          <input type="number" id="template-duration" min="1" required placeholder="例如：30">
+        </div>
+        <div class="form-group">
+          <label for="template-description">动作说明</label>
+          <textarea id="template-description" rows="4" placeholder="详细说明训练动作、组数、次数等..."></textarea>
+        </div>
+        <div class="form-group">
+          <label for="template-notes">备注</label>
+          <textarea id="template-notes" rows="2" placeholder="记录注意事项或训练要点..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" id="btn-template-cancel" class="btn btn-secondary">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
     </div>
   </div>
 

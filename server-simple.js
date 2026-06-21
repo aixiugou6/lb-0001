@@ -14,7 +14,8 @@ function formatLocalDate(date) {
 
 const DEFAULT_DATA = {
   plans: [],
-  records: []
+  records: [],
+  templates: []
 };
 
 function loadData() {
@@ -64,11 +65,25 @@ function initSampleData() {
       { id: 2, plan_id: 2, training_date: getDateStr(-1), actual_duration: 50, calories_burned: 350, feeling_notes: '卧推比上次多做了一组，手臂有点酸', created_at: new Date().toISOString() }
     ];
 
+    data.templates = [
+      { id: 1, name: '标准晨跑', type: '有氧', default_duration: 30, exercise_description: '热身5分钟 -> 匀速跑步20分钟 -> 拉伸5分钟，配速控制在6-7分钟/公里', notes: '适合工作日早晨，保持中等强度', created_at: new Date().toISOString() },
+      { id: 2, name: '上肢力量训练', type: '力量', default_duration: 45, exercise_description: '卧推4组x12次、哑铃飞鸟3组x15次、俯卧撑3组x15次、二头弯举3组x12次', notes: '注意动作标准，避免借力', created_at: new Date().toISOString() },
+      { id: 3, name: '下肢力量训练', type: '力量', default_duration: 50, exercise_description: '深蹲4组x15次、箭步蹲3组x12次/腿、腿举3组x15次、小腿提踵4组x20次', notes: '下蹲时膝盖不超过脚尖', created_at: new Date().toISOString() },
+      { id: 4, name: '核心强化', type: '力量', default_duration: 35, exercise_description: '平板支撑3组x60秒、卷腹3组x20次、俄罗斯转体3组x20次、登山跑3组x30秒', notes: '保持核心收紧，呼吸均匀', created_at: new Date().toISOString() },
+      { id: 5, name: 'HIIT燃脂', type: '有氧', default_duration: 25, exercise_description: '开合跳30秒、高抬腿30秒、波比跳20秒、深蹲跳30秒、休息30秒，循环5组', notes: '高强度训练，注意量力而行', created_at: new Date().toISOString() },
+      { id: 6, name: '瑜伽放松', type: '柔韧', default_duration: 60, exercise_description: '拜日式x5组 -> 战士式 -> 三角式 -> 坐角式 -> 仰卧扭转 -> 挺尸式放松', notes: '配合深呼吸，每个动作保持5-8个呼吸', created_at: new Date().toISOString() },
+      { id: 7, name: '游泳训练', type: '有氧', default_duration: 90, exercise_description: '热身50米 -> 自由泳400米 -> 蛙泳200米 -> 仰泳200米 -> 放松游150米', notes: '注意换气节奏，提前补充水分', created_at: new Date().toISOString() }
+    ];
+
     saveData(data);
     console.log('已插入示例数据');
   }
   if (!data.records) {
     data.records = [];
+    saveData(data);
+  }
+  if (!data.templates) {
+    data.templates = [];
     saveData(data);
   }
   return data;
@@ -77,6 +92,7 @@ function initSampleData() {
 let appData = initSampleData();
 let nextPlanId = appData.plans.length > 0 ? Math.max(...appData.plans.map(p => p.id)) + 1 : 1;
 let nextRecordId = appData.records && appData.records.length > 0 ? Math.max(...appData.records.map(r => r.id)) + 1 : 1;
+let nextTemplateId = appData.templates && appData.templates.length > 0 ? Math.max(...appData.templates.map(t => t.id)) + 1 : 1;
 
 function getNextPlanId() {
   return nextPlanId++;
@@ -84,6 +100,10 @@ function getNextPlanId() {
 
 function getNextRecordId() {
   return nextRecordId++;
+}
+
+function getNextTemplateId() {
+  return nextTemplateId++;
 }
 
 function parseBody(req) {
@@ -498,6 +518,96 @@ const server = http.createServer(async (req, res) => {
         appData.records.push(newRecord);
         saveData(appData);
         sendJSON(res, 201, newRecord);
+      } catch (err) {
+        sendJSON(res, 400, { error: '请求体格式错误' });
+      }
+      return;
+    }
+  }
+
+  const templateDetailMatch = url.match(/^\/api\/templates\/(\d+)$/);
+  if (templateDetailMatch) {
+    const id = parseInt(templateDetailMatch[1]);
+    const template = (appData.templates || []).find(t => t.id === id);
+
+    if (method === 'GET') {
+      if (!template) {
+        sendJSON(res, 404, { error: '模板不存在' });
+        return;
+      }
+      sendJSON(res, 200, template);
+      return;
+    }
+
+    if (method === 'PUT') {
+      if (!template) {
+        sendJSON(res, 404, { error: '模板不存在' });
+        return;
+      }
+      try {
+        const body = await parseBody(req);
+        if (body.name !== undefined) template.name = body.name;
+        if (body.type !== undefined) template.type = body.type;
+        if (body.default_duration !== undefined) template.default_duration = body.default_duration;
+        if (body.exercise_description !== undefined) template.exercise_description = body.exercise_description;
+        if (body.notes !== undefined) template.notes = body.notes;
+        saveData(appData);
+        sendJSON(res, 200, template);
+      } catch (err) {
+        sendJSON(res, 400, { error: '请求体格式错误' });
+      }
+      return;
+    }
+
+    if (method === 'DELETE') {
+      if (!template) {
+        sendJSON(res, 404, { error: '模板不存在' });
+        return;
+      }
+      appData.templates = appData.templates.filter(t => t.id !== id);
+      saveData(appData);
+      sendJSON(res, 200, { message: '删除成功' });
+      return;
+    }
+  }
+
+  if (url.startsWith('/api/templates')) {
+    const query = parseQueryString(url);
+
+    if (method === 'GET') {
+      let templates = [...(appData.templates || [])];
+      if (query.type && query.type !== 'all') {
+        templates = templates.filter(t => t.type === query.type);
+      }
+      templates.sort((a, b) => b.id - a.id);
+      sendJSON(res, 200, templates);
+      return;
+    }
+
+    if (method === 'POST') {
+      try {
+        const body = await parseBody(req);
+        const { name, type, default_duration, exercise_description = '', notes = '' } = body;
+
+        if (!name || !type || !default_duration) {
+          sendJSON(res, 400, { error: '缺少必填字段' });
+          return;
+        }
+
+        const newTemplate = {
+          id: getNextTemplateId(),
+          name,
+          type,
+          default_duration,
+          exercise_description,
+          notes,
+          created_at: new Date().toISOString()
+        };
+
+        if (!appData.templates) appData.templates = [];
+        appData.templates.push(newTemplate);
+        saveData(appData);
+        sendJSON(res, 201, newTemplate);
       } catch (err) {
         sendJSON(res, 400, { error: '请求体格式错误' });
       }
