@@ -8,6 +8,10 @@ let deleteTargetType = null;
 let currentTab = 'plans';
 let selectedWeekDay = null;
 let weekPlans = [];
+let selectedPlanIds = new Set();
+let selectedTemplateIds = new Set();
+let batchActionType = null;
+let batchActionTarget = null;
 
 const elements = {
   weekTotal: document.getElementById('week-total'),
@@ -79,7 +83,22 @@ const elements = {
   templateType: document.getElementById('template-type'),
   templateDuration: document.getElementById('template-duration'),
   templateDescription: document.getElementById('template-description'),
-  templateNotes: document.getElementById('template-notes')
+  templateNotes: document.getElementById('template-notes'),
+  plansBatchActions: document.getElementById('plans-batch-actions'),
+  plansSelectAll: document.getElementById('plans-select-all'),
+  plansSelectedCount: document.getElementById('plans-selected-count'),
+  btnBatchComplete: document.getElementById('btn-batch-complete'),
+  btnBatchIncomplete: document.getElementById('btn-batch-incomplete'),
+  btnBatchDeletePlans: document.getElementById('btn-batch-delete-plans'),
+  templatesBatchActions: document.getElementById('templates-batch-actions'),
+  templatesSelectAll: document.getElementById('templates-select-all'),
+  templatesSelectedCount: document.getElementById('templates-selected-count'),
+  btnBatchDeleteTemplates: document.getElementById('btn-batch-delete-templates'),
+  batchConfirmModal: document.getElementById('batch-confirm-modal'),
+  batchConfirmTitle: document.getElementById('batch-confirm-title'),
+  batchConfirmMessage: document.getElementById('batch-confirm-message'),
+  btnBatchCancel: document.getElementById('btn-batch-cancel'),
+  btnBatchConfirm: document.getElementById('btn-batch-confirm')
 };
 
 function formatDate(dateStr) {
@@ -260,6 +279,7 @@ function filterByWeekDay(date) {
       startDate: '',
       endDate: ''
     };
+    selectedPlanIds.clear();
     elements.filterType.value = 'all';
     elements.filterDate.value = date;
     elements.filterCompleted.value = 'all';
@@ -316,13 +336,20 @@ function renderPlans() {
   if (currentPlans.length === 0) {
     elements.plansList.innerHTML = '';
     elements.emptyState.style.display = 'block';
+    elements.plansBatchActions.style.display = 'none';
+    selectedPlanIds.clear();
     return;
   }
 
   elements.emptyState.style.display = 'none';
+  elements.plansBatchActions.style.display = 'flex';
+  updatePlansBatchUI();
 
-  elements.plansList.innerHTML = currentPlans.map(plan => `
-    <div class="plan-item ${plan.completed ? 'completed' : ''}" data-id="${plan.id}">
+  elements.plansList.innerHTML = currentPlans.map(plan => {
+    const isSelected = selectedPlanIds.has(plan.id);
+    return `
+    <div class="plan-item ${plan.completed ? 'completed' : ''} ${isSelected ? 'selected' : ''}" data-id="${plan.id}">
+      <input type="checkbox" class="plan-batch-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); togglePlanSelect(${plan.id})">
       <input type="checkbox" class="plan-checkbox" ${plan.completed ? 'checked' : ''} onclick="toggleComplete(${plan.id})">
       <div class="plan-content">
         <div class="plan-header">
@@ -342,7 +369,35 @@ function renderPlans() {
         <button class="btn btn-danger" onclick="showDeleteConfirm(${plan.id}, 'plan')">删除</button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
+}
+
+function togglePlanSelect(id) {
+  if (selectedPlanIds.has(id)) {
+    selectedPlanIds.delete(id);
+  } else {
+    selectedPlanIds.add(id);
+  }
+  renderPlans();
+}
+
+function toggleAllPlansSelect() {
+  if (selectedPlanIds.size === currentPlans.length) {
+    selectedPlanIds.clear();
+  } else {
+    selectedPlanIds = new Set(currentPlans.map(p => p.id));
+  }
+  renderPlans();
+}
+
+function updatePlansBatchUI() {
+  elements.plansSelectedCount.textContent = selectedPlanIds.size;
+  elements.plansSelectAll.checked = currentPlans.length > 0 && selectedPlanIds.size === currentPlans.length;
+  elements.plansSelectAll.indeterminate = selectedPlanIds.size > 0 && selectedPlanIds.size < currentPlans.length;
+  const hasSelection = selectedPlanIds.size > 0;
+  elements.btnBatchComplete.disabled = !hasSelection;
+  elements.btnBatchIncomplete.disabled = !hasSelection;
+  elements.btnBatchDeletePlans.disabled = !hasSelection;
 }
 
 async function fetchTemplates() {
@@ -364,13 +419,20 @@ function renderTemplates() {
   if (currentTemplates.length === 0) {
     elements.templatesList.innerHTML = '';
     elements.templatesEmptyState.style.display = 'block';
+    elements.templatesBatchActions.style.display = 'none';
+    selectedTemplateIds.clear();
     return;
   }
 
   elements.templatesEmptyState.style.display = 'none';
+  elements.templatesBatchActions.style.display = 'flex';
+  updateTemplatesBatchUI();
 
-  elements.templatesList.innerHTML = currentTemplates.map(template => `
-    <div class="template-item" data-id="${template.id}">
+  elements.templatesList.innerHTML = currentTemplates.map(template => {
+    const isSelected = selectedTemplateIds.has(template.id);
+    return `
+    <div class="template-item ${isSelected ? 'selected' : ''}" data-id="${template.id}">
+      <input type="checkbox" class="template-batch-checkbox" ${isSelected ? 'checked' : ''} onclick="event.stopPropagation(); toggleTemplateSelect(${template.id})">
       <div class="template-content">
         <div class="template-header">
           <span class="template-name">${escapeHtml(template.name)}</span>
@@ -388,7 +450,32 @@ function renderTemplates() {
         <button class="btn btn-danger" onclick="showDeleteConfirm(${template.id}, 'template')">删除</button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
+}
+
+function toggleTemplateSelect(id) {
+  if (selectedTemplateIds.has(id)) {
+    selectedTemplateIds.delete(id);
+  } else {
+    selectedTemplateIds.add(id);
+  }
+  renderTemplates();
+}
+
+function toggleAllTemplatesSelect() {
+  if (selectedTemplateIds.size === currentTemplates.length) {
+    selectedTemplateIds.clear();
+  } else {
+    selectedTemplateIds = new Set(currentTemplates.map(t => t.id));
+  }
+  renderTemplates();
+}
+
+function updateTemplatesBatchUI() {
+  elements.templatesSelectedCount.textContent = selectedTemplateIds.size;
+  elements.templatesSelectAll.checked = currentTemplates.length > 0 && selectedTemplateIds.size === currentTemplates.length;
+  elements.templatesSelectAll.indeterminate = selectedTemplateIds.size > 0 && selectedTemplateIds.size < currentTemplates.length;
+  elements.btnBatchDeleteTemplates.disabled = selectedTemplateIds.size === 0;
 }
 
 async function populateTemplateSelector() {
@@ -650,6 +737,101 @@ function hideDeleteConfirm() {
   elements.confirmModal.classList.remove('show');
 }
 
+function showBatchConfirm(actionType, target) {
+  batchActionType = actionType;
+  batchActionTarget = target;
+  const count = target === 'plans' ? selectedPlanIds.size : selectedTemplateIds.size;
+
+  if (actionType === 'complete') {
+    elements.batchConfirmTitle.textContent = '确认批量标记已完成';
+    elements.batchConfirmMessage.textContent = `确定要将选中的 ${count} 条计划标记为已完成吗？`;
+    elements.btnBatchConfirm.textContent = '确认标记';
+    elements.btnBatchConfirm.className = 'btn btn-success';
+  } else if (actionType === 'incomplete') {
+    elements.batchConfirmTitle.textContent = '确认批量标记未完成';
+    elements.batchConfirmMessage.textContent = `确定要将选中的 ${count} 条计划标记为未完成吗？`;
+    elements.btnBatchConfirm.textContent = '确认标记';
+    elements.btnBatchConfirm.className = 'btn btn-outline';
+  } else if (actionType === 'delete') {
+    if (target === 'plans') {
+      elements.batchConfirmTitle.textContent = '确认批量删除计划';
+      elements.batchConfirmMessage.textContent = `确定要删除选中的 ${count} 条计划吗？关联的训练记录也会被一并删除，此操作不可恢复。`;
+    } else {
+      elements.batchConfirmTitle.textContent = '确认批量删除模板';
+      elements.batchConfirmMessage.textContent = `确定要删除选中的 ${count} 条模板吗？此操作不可恢复。`;
+    }
+    elements.btnBatchConfirm.textContent = '确认删除';
+    elements.btnBatchConfirm.className = 'btn btn-danger';
+  }
+
+  elements.batchConfirmModal.classList.add('show');
+}
+
+function hideBatchConfirm() {
+  batchActionType = null;
+  batchActionTarget = null;
+  elements.batchConfirmModal.classList.remove('show');
+}
+
+async function executeBatchAction() {
+  if (!batchActionType || !batchActionTarget) return;
+
+  try {
+    if (batchActionTarget === 'plans') {
+      const ids = Array.from(selectedPlanIds);
+      let res;
+
+      if (batchActionType === 'complete' || batchActionType === 'incomplete') {
+        const completed = batchActionType === 'complete';
+        res = await fetch(`${API_BASE}/plans/batch-toggle`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids, completed })
+        });
+      } else if (batchActionType === 'delete') {
+        res = await fetch(`${API_BASE}/plans/batch-delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+      }
+
+      if (res && res.ok) {
+        hideBatchConfirm();
+        selectedPlanIds.clear();
+        await fetchPlans();
+        await fetchStats();
+        await fetchTypes();
+        await fetchWeekPlans();
+      } else if (res) {
+        const err = await res.json();
+        alert(err.error || '操作失败');
+      }
+    } else if (batchActionTarget === 'templates') {
+      if (batchActionType === 'delete') {
+        const ids = Array.from(selectedTemplateIds);
+        const res = await fetch(`${API_BASE}/templates/batch-delete`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+
+        if (res.ok) {
+          hideBatchConfirm();
+          selectedTemplateIds.clear();
+          await fetchTemplates();
+        } else {
+          const err = await res.json();
+          alert(err.error || '操作失败');
+        }
+      }
+    }
+  } catch (err) {
+    console.error('批量操作失败:', err);
+    alert('操作失败，请稍后重试');
+  }
+}
+
 async function confirmDelete() {
   if (!deleteTargetId) return;
 
@@ -699,6 +881,7 @@ function resetFilters() {
     startDate: '',
     endDate: ''
   };
+  selectedPlanIds.clear();
   elements.filterType.value = 'all';
   elements.filterDate.value = '';
   elements.filterCompleted.value = 'all';
@@ -716,6 +899,7 @@ function filterByWeek() {
     startDate: weekRange.start,
     endDate: weekRange.end
   };
+  selectedPlanIds.clear();
   elements.filterType.value = 'all';
   elements.filterDate.value = '';
   elements.filterCompleted.value = 'all';
@@ -902,6 +1086,7 @@ function initEventListeners() {
   elements.filterType.addEventListener('change', () => {
     currentFilters.type = elements.filterType.value;
     selectedWeekDay = null;
+    selectedPlanIds.clear();
     renderWeekView();
     fetchPlans();
   });
@@ -914,12 +1099,14 @@ function initEventListeners() {
     } else {
       selectedWeekDay = null;
     }
+    selectedPlanIds.clear();
     renderWeekView();
     fetchPlans();
   });
   elements.filterCompleted.addEventListener('change', () => {
     currentFilters.completed = elements.filterCompleted.value;
     selectedWeekDay = null;
+    selectedPlanIds.clear();
     renderWeekView();
     fetchPlans();
   });
@@ -940,6 +1127,25 @@ function initEventListeners() {
   elements.btnTemplateClose.addEventListener('click', closeTemplateModal);
   elements.btnTemplateCancel.addEventListener('click', closeTemplateModal);
   elements.templateForm.addEventListener('submit', saveTemplate);
+
+  elements.plansSelectAll.addEventListener('change', toggleAllPlansSelect);
+  elements.btnBatchComplete.addEventListener('click', () => {
+    if (selectedPlanIds.size > 0) showBatchConfirm('complete', 'plans');
+  });
+  elements.btnBatchIncomplete.addEventListener('click', () => {
+    if (selectedPlanIds.size > 0) showBatchConfirm('incomplete', 'plans');
+  });
+  elements.btnBatchDeletePlans.addEventListener('click', () => {
+    if (selectedPlanIds.size > 0) showBatchConfirm('delete', 'plans');
+  });
+
+  elements.templatesSelectAll.addEventListener('change', toggleAllTemplatesSelect);
+  elements.btnBatchDeleteTemplates.addEventListener('click', () => {
+    if (selectedTemplateIds.size > 0) showBatchConfirm('delete', 'templates');
+  });
+
+  elements.btnBatchCancel.addEventListener('click', hideBatchConfirm);
+  elements.btnBatchConfirm.addEventListener('click', executeBatchAction);
 
   elements.modal.addEventListener('click', (e) => {
     if (e.target === elements.modal) {
@@ -965,9 +1171,17 @@ function initEventListeners() {
     }
   });
 
+  elements.batchConfirmModal.addEventListener('click', (e) => {
+    if (e.target === elements.batchConfirmModal) {
+      hideBatchConfirm();
+    }
+  });
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-      if (elements.confirmModal.classList.contains('show')) {
+      if (elements.batchConfirmModal.classList.contains('show')) {
+        hideBatchConfirm();
+      } else if (elements.confirmModal.classList.contains('show')) {
         hideDeleteConfirm();
       } else if (elements.templateModal.classList.contains('show')) {
         closeTemplateModal();
@@ -998,5 +1212,7 @@ window.editRecord = editRecord;
 window.editTemplate = editTemplate;
 window.applyTemplate = applyTemplate;
 window.filterByWeekDay = filterByWeekDay;
+window.togglePlanSelect = togglePlanSelect;
+window.toggleTemplateSelect = toggleTemplateSelect;
 
 init();

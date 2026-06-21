@@ -615,6 +615,80 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (url === '/api/plans/batch-toggle' && method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const { ids, completed } = body;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        sendJSON(res, 400, { error: '请选择要操作的计划' });
+        return;
+      }
+
+      if (completed === undefined || completed === null) {
+        sendJSON(res, 400, { error: '缺少完成状态参数' });
+        return;
+      }
+
+      const completedVal = completed ? 1 : 0;
+      let updated = 0;
+      appData.plans.forEach(plan => {
+        if (ids.includes(plan.id)) {
+          plan.completed = completedVal;
+          updated++;
+        }
+      });
+      saveData(appData);
+      sendJSON(res, 200, { message: `成功更新 ${updated} 条计划`, updated });
+    } catch (err) {
+      sendJSON(res, 400, { error: '请求体格式错误' });
+    }
+    return;
+  }
+
+  if (url === '/api/plans/batch-delete' && method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const { ids } = body;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        sendJSON(res, 400, { error: '请选择要删除的计划' });
+        return;
+      }
+
+      const beforeCount = appData.plans.length;
+      appData.plans = appData.plans.filter(p => !ids.includes(p.id));
+      appData.records = (appData.records || []).filter(r => !ids.includes(r.plan_id));
+      const deleted = beforeCount - appData.plans.length;
+      saveData(appData);
+      sendJSON(res, 200, { message: `成功删除 ${deleted} 条计划`, deleted });
+    } catch (err) {
+      sendJSON(res, 400, { error: '请求体格式错误' });
+    }
+    return;
+  }
+
+  if (url === '/api/templates/batch-delete' && method === 'POST') {
+    try {
+      const body = await parseBody(req);
+      const { ids } = body;
+
+      if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        sendJSON(res, 400, { error: '请选择要删除的模板' });
+        return;
+      }
+
+      const beforeCount = (appData.templates || []).length;
+      appData.templates = (appData.templates || []).filter(t => !ids.includes(t.id));
+      const deleted = beforeCount - appData.templates.length;
+      saveData(appData);
+      sendJSON(res, 200, { message: `成功删除 ${deleted} 条模板`, deleted });
+    } catch (err) {
+      sendJSON(res, 400, { error: '请求体格式错误' });
+    }
+    return;
+  }
+
   sendJSON(res, 404, { error: '接口不存在' });
 });
 

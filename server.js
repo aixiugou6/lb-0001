@@ -580,6 +580,61 @@ app.delete('/api/templates/:id', (req, res) => {
   }
 });
 
+app.post('/api/plans/batch-toggle', (req, res) => {
+  const { ids, completed } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: '请选择要操作的计划' });
+  }
+
+  if (completed === undefined || completed === null) {
+    return res.status(400).json({ error: '缺少完成状态参数' });
+  }
+
+  try {
+    const completedVal = completed ? 1 : 0;
+    const placeholders = ids.map(() => '?').join(',');
+    const updateStmt = db.prepare(`UPDATE workout_plans SET completed = ? WHERE id IN (${placeholders})`);
+    const result = updateStmt.run(completedVal, ...ids);
+    res.json({ message: `成功更新 ${result.changes} 条计划`, updated: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/plans/batch-delete', (req, res) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: '请选择要删除的计划' });
+  }
+
+  try {
+    const placeholders = ids.map(() => '?').join(',');
+    db.prepare(`DELETE FROM training_records WHERE plan_id IN (${placeholders})`).run(...ids);
+    const result = db.prepare(`DELETE FROM workout_plans WHERE id IN (${placeholders})`).run(...ids);
+    res.json({ message: `成功删除 ${result.changes} 条计划`, deleted: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/templates/batch-delete', (req, res) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    return res.status(400).json({ error: '请选择要删除的模板' });
+  }
+
+  try {
+    const placeholders = ids.map(() => '?').join(',');
+    const result = db.prepare(`DELETE FROM training_templates WHERE id IN (${placeholders})`).run(...ids);
+    res.json({ message: `成功删除 ${result.changes} 条模板`, deleted: result.changes });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`服务器运行在 http://localhost:${PORT}`);
 });

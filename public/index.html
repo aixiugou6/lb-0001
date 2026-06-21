@@ -97,10 +97,22 @@
       </section>
 
       <section class="plans-section">
-        <h2>
-          运动计划列表
-          <span id="plans-count" class="plans-count"></span>
-        </h2>
+        <div class="list-header">
+          <h2>
+            运动计划列表
+            <span id="plans-count" class="plans-count"></span>
+          </h2>
+          <div class="batch-actions" id="plans-batch-actions" style="display: none;">
+            <label class="batch-select-all">
+              <input type="checkbox" id="plans-select-all">
+              全选
+            </label>
+            <span class="batch-selected-count">已选 <span id="plans-selected-count">0</span> 项</span>
+            <button id="btn-batch-complete" class="btn btn-success btn-sm">✅ 标记已完成</button>
+            <button id="btn-batch-incomplete" class="btn btn-outline btn-sm">⏳ 标记未完成</button>
+            <button id="btn-batch-delete-plans" class="btn btn-danger btn-sm">🗑️ 批量删除</button>
+          </div>
+        </div>
         <div id="plans-list" class="plans-list">
         </div>
         <div id="empty-state" class="empty-state" style="display: none;">
@@ -115,10 +127,20 @@
       </section>
 
       <section class="templates-section">
-        <h2>
-          训练模板列表
-          <span id="templates-count" class="plans-count"></span>
-        </h2>
+        <div class="list-header">
+          <h2>
+            训练模板列表
+            <span id="templates-count" class="plans-count"></span>
+          </h2>
+          <div class="batch-actions" id="templates-batch-actions" style="display: none;">
+            <label class="batch-select-all">
+              <input type="checkbox" id="templates-select-all">
+              全选
+            </label>
+            <span class="batch-selected-count">已选 <span id="templates-selected-count">0</span> 项</span>
+            <button id="btn-batch-delete-templates" class="btn btn-danger btn-sm">🗑️ 批量删除</button>
+          </div>
+        </div>
         <div id="templates-list" class="templates-list">
         </div>
         <div id="templates-empty-state" class="empty-state" style="display: none;">
@@ -231,6 +253,17 @@
       <div class="form-actions">
         <button id="btn-cancel-delete" class="btn btn-secondary">取消</button>
         <button id="btn-confirm-delete" class="btn btn-danger">删除</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="batch-confirm-modal" class="modal">
+    <div class="modal-content modal-small">
+      <h3 id="batch-confirm-title">确认操作</h3>
+      <p id="batch-confirm-message">确定要执行此批量操作吗？</p>
+      <div class="form-actions">
+        <button id="btn-batch-cancel" class="btn btn-secondary">取消</button>
+        <button id="btn-batch-confirm" class="btn btn-danger">确认</button>
       </div>
     </div>
   </div>
